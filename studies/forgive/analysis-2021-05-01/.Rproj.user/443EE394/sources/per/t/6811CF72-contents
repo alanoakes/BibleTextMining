@@ -1,0 +1,70 @@
+# Text Mining Resource
+# https://www.tidytextmining.com/index.html
+
+# set working directory
+setwd("C:/Users/oakespar/Documents/forgive/analysis-2021-05-01")
+
+# invoke libraries
+library(tidytext)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+data(stop_words)
+
+# read data
+Lexicon            <- read.csv('data/lexicon.csv', header = TRUE, sep = ',', encoding = 'UTF-8')
+BibleBookOrder     <- read.csv('data/BibleBkOrder.csv', header = TRUE, na.strings = TRUE, encoding = 'UTF-8')
+Scripture_StrongsN <- read.csv('data/WebScraperOutput_NoStrongs.csv', header = TRUE, sep = ',', encoding = 'UTF-8')
+Scripture_StrongsY <- read.csv('data/WebScraperOutput_Strongs.csv', header = TRUE, sep = ',', encoding = 'UTF-8')
+
+# merge bible book order to scriptures
+Scripture_BblBkOrder <- merge(x = Scripture_StrongsN,  y = BibleBookOrder[,1:4], by.x = 'Book', by.y = 'Book')
+
+# Unnesting Tokens & Remove Stop Words
+Scripture_Testmnt <- Scripture_BblBkOrder %>% group_by(Testmant) %>% mutate(linenumber = row_number(), Chapter) %>% ungroup() %>% unnest_tokens(word, Text_String)
+Scripture_Section <- Scripture_BblBkOrder %>% group_by(Section) %>% mutate(linenumber = row_number(), Chapter) %>% ungroup() %>% unnest_tokens(word, Text_String)
+Scripture_Book    <- Scripture_BblBkOrder %>% group_by(Book) %>% mutate(linenumber = row_number(), Chapter) %>% ungroup() %>% unnest_tokens(word, Text_String)
+
+# removing  stop words
+Scripture_Testmnt_SWn <- Scripture_Testmnt %>% anti_join(stop_words)
+Scripture_Section_SWn <- Scripture_Section %>% anti_join(stop_words)
+Scripture_Book_SWn    <- Scripture_Book %>% anti_join(stop_words)
+
+# viewing stop words
+# Scripture_Testmnt_SWy <- Scripture_Tokens %>% semi_join(stop_words)
+# Scripture_Section_SWy <- Scripture_Tokens %>% semi_join(stop_words)
+# Scripture_Book_SWy    <- Scripture_Tokens %>% semi_join(stop_words)
+
+# Scripture_Tokens_SWn$word %>% unique() %>% sort() # list w/o stops words
+# Scripture_Tokens_SWy$word %>% unique() %>% sort() # list of stop words found
+
+
+# Chart Unnested Tokens without Stop Words Count
+Scripture_Testmnt_SWn %>%
+  count(word, sort = TRUE) %>% filter(n > 50) %>% mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) + geom_col() + labs(y = NULL)
+
+# tf-idf (total)
+Scripture_Testmnt_SWn_tfidf <- Scripture_Testmnt_SWn %>% 
+  count(Testmant, word, sort = TRUE) %>%
+  bind_tf_idf(word, Testmant, n) %>%
+  group_by(Testmant) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, tf_idf))
+
+# tf-idf (top ten)
+Scripture_Testmnt_SWn_tfidf_n10 <- Scripture_Testmnt_SWn %>% 
+  count(Testmant, word, sort = TRUE) %>%
+  bind_tf_idf(word, Testmant, n) %>%
+  group_by(Testmant) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, tf_idf))
+
+# chart tf-idf per book
+Scripture_Testmnt_SWn_tfidf_n10 %>%
+  ggplot(aes(word, tf_idf, fill = factor(Testmant))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~Testmant, scales = 'free') +
+  coord_flip()

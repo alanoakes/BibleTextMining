@@ -1,0 +1,36 @@
+---
+title: "Word & Concept Study For 'Forgive'"
+author: "Parker Oakes"
+date: "3/9/2021"
+output: 
+  bookdown::html_document2: default
+bibliography: references.bib
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+library(DT)
+library(readr)
+```
+
+## Table of Contents
+
+* [Lexicon Table](#01)
+* [Hebrew and Greek Breakdown](#02)
+* [Locations Throughourt The Bible](#03)
+
+## Lexicon Table <a name="01"></a>
+
+```{r, message=FALSE, comment='', warning=FALSE, fig.keep='all'}
+Lexicon_Table <- read_csv("lexicon.csv")
+cols(
+  Strongs = col_character(),
+  Hebrew_Greek = col_character(),
+  Transliterated = col_character(),
+  `English Equivalent` = col_character()
+)
+datatable(Lexicon_Table)
+```
+@BlueLetterBible
+
+## References
