@@ -2,11 +2,11 @@
 # Set Study Area ----
 # + ------------------------------------------------------------------------- +
 OldT_Books    <- c("2Ki")
-OldT_Chapters <- c(15,16)
+OldT_Chapters <- c(17,18)
 NewT_Books    <- c("Jon")
 NewT_Chapters <- c(3)
 
-# Date of last use: 2021-05-12 Wed
+# Date of last use: 2021-05-13 Thu
 TmStmp <- gsub('[:-]', '', substr(Sys.time(), 1, 19))
 TmStmp <- gsub(' ', '-', TmStmp)
 
@@ -50,6 +50,28 @@ Words_Chapter <- Tidy_Scriptures %>% count(BkCh, word, sort = TRUE)
 Words_Total   <- Words_Chapter %>% group_by(BkCh) %>% summarise(total = sum(n))
 Words_Chapter <- left_join(Words_Chapter, Words_Total)
 
+# + ------------------------------------------------------------------------- +
+# Visualize Content Scope ----
+# + ------------------------------------------------------------------------- +
+# make counts of scripture and words per BkCh
+ScripStats_BkChVs <- Comb_Subset %>% count(BkCh, length(Verse)) %>% rename(Scriptures = n)
+ScripStats_BkChWd <- Words_Chapter %>% count(BkCh, length(word)) %>% rename(Words = n)
+
+# combine both, prep for column plot
+ScripStats <- left_join(ScripStats_BkChVs, ScripStats_BkChWd) %>%
+  select(BkCh, Scriptures, Words) %>%
+  gather('Variables', 'Values', -BkCh)
+
+# View in ggplot
+ggplot(ScripStats, aes(fill = Variables, y = Values, x = BkCh)) +
+  geom_bar(position = 'dodge', stat = 'identity') +
+  geom_text(aes(label = Values), position = position_dodge(width = 0.9), vjust = -0.25) +
+  labs(
+    title = 'Scripture and Distinct Words Counts Per Chapter',
+    subtitle = 'Note: Stop Words Removed'
+  ) + xlab('Books of Study')
+  
+ggsave(paste0('studies/daily-devo/',TmStmp, '_00_','ScriptureStats.png'))
 # + ------------------------------------------------------------------------- +
 # Visualize n Cutoff ----
 # + ------------------------------------------------------------------------- +
