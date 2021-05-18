@@ -2,9 +2,9 @@
 # Set Study Area ----
 # + ------------------------------------------------------------------------- +
 OldT_Books    <- c("2Ki")
-OldT_Chapters <- c(17,18)
-NewT_Books    <- c("Jon")
-NewT_Chapters <- c(3)
+OldT_Chapters <- 17 #c(17, 18)
+NewT_Books    <- "" #c("Jon")
+NewT_Chapters <- "" #c(3)
 
 # Date of last use: 2021-05-13 Thu
 TmStmp <- gsub('[:-]', '', substr(Sys.time(), 1, 19))
