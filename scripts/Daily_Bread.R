@@ -1,6 +1,9 @@
-# Date of last use: 2021-05-13 Thu
-TmStmp <- gsub('[:-]', '', substr(Sys.time(), 1, 19))
-TmStmp <- gsub(' ', '-', TmStmp)
+# + ------------------------------------------------------------------------- +
+# Make Dynamic Date ----
+# + ------------------------------------------------------------------------- +
+TmStmp     <- gsub('[:-]', '', substr(Sys.time(), 1, 19))
+TmStmp     <- gsub(' ', '-', TmStmp)
+DailyDevo  <- paste0('studies/daily-devo/', Sys.Date())
 
 # + ------------------------------------------------------------------------- +
 # Libraries ----
@@ -19,6 +22,7 @@ data("stop_words")
 # Read In Data ----
 # + ------------------------------------------------------------------------- +
 setwd('C:/Users/oakespar/Documents/2021-BibleStudies')
+dir.create(DailyDevo)
 Scripture   <- read_csv('data/ScriptureKjv.csv', col_names = TRUE)
 BibleOrder  <- read_csv('data/BibleBkOrder.csv', col_names = TRUE)
 
@@ -83,7 +87,7 @@ ggplot(ScripStats, aes(fill = Variables, y = Values, x = BkCh)) +
     subtitle = 'Note: Stop Words Removed'
   ) + xlab('Books of Study')
   
-ggsave(paste0('studies/daily-devo/',TmStmp, '_00_','ScriptureStats.png'))
+ggsave(paste0(DailyDevo,'/',TmStmp, '_00_','ScriptureStats.png'))
 # + ------------------------------------------------------------------------- +
 # Visualize n Cutoff ----
 # + ------------------------------------------------------------------------- +
@@ -92,7 +96,7 @@ ggplot(Words_Chapter, aes(x = as.factor(BkCh), y = n)) +
   xlab(paste("Book/Chapter\nRan on", Sys.time())) + ylab("Occurence Per Chapter") +
   ggtitle('Term Count Per Chapter')
 
-ggsave(paste0('studies/daily-devo/',TmStmp, '_01_','tfidf_cutoff.png'))
+ggsave(paste0(DailyDevo, '/',TmStmp, '_01_','tfidf_cutoff.png'))
 # + ------------------------------------------------------------------------- +
 # Calculate TF-IDF ----
 # + ------------------------------------------------------------------------- +
@@ -118,7 +122,7 @@ Words_tfidf_g %>%
   labs(x = "tf-idf", y = NULL) +
   ggtitle(paste('Top', slicemx, '% of Tokens Per Chapter with Highest TF-IDF'))
 
-ggsave(paste0('studies/daily-devo/',TmStmp, '_02_','tfidf_top', slicemx, 'pct.png'))
+ggsave(paste0(DailyDevo, '/',TmStmp, '_02_','tfidf_top', slicemx, 'pct.png'))
 # + ------------------------------------------------------------------------- +
 # Calc Sentiment ----
 # re: sentiment per verse
@@ -143,7 +147,7 @@ ggplot(Words_Sentiment, aes(Verse, sentiment, fill = BkCh)) +
   facet_wrap(~BkCh, ncol = 2, scales = "free_x") +
   ggtitle(paste0('Sentiment Analysis Per Verse\nusing ', SentmtType, ' dictionary'))
 
-ggsave(paste0('studies/daily-devo/',TmStmp, '_03_','Sentiment_', SentmtType, '.png'))
+ggsave(paste0(DailyDevo, '/',TmStmp, '_03_','Sentiment_', SentmtType, '.png'))
 # + ------------------------------------------------------------------------- +
 # Calc Bigram TF-IDF ----
 # re: per book
@@ -171,7 +175,7 @@ Bigram_tf_idf %>%
                 OldT_Books,  OldT_Chapters[1], ',', OldT_Chapters[2], 
                 '&', NewT_Books, NewT_Chapters))
 
-ggsave(paste0('studies/daily-devo/',TmStmp, '_04_','bigram_counts', '.png'))
+ggsave(paste0(DailyDevo, '/',TmStmp, '_04_','bigram_counts', '.png'))
 # + ------------------------------------------------------------------------- +
 # View Top TF-IDF Bigrams ----
 # re: per book
@@ -190,7 +194,7 @@ Bigram_tf_idf %>%
                 OldT_Books,  OldT_Chapters[1], ',', OldT_Chapters[2], 
                 '&', NewT_Books, NewT_Chapters))
 
-ggsave(paste0('studies/daily-devo/',TmStmp, '_05_','bigram_tfidf_top', BigrmPct, 'pct.png'))
+ggsave(paste0(DailyDevo, '/',TmStmp, '_05_','bigram_tfidf_top', BigrmPct, 'pct.png'))
 # + ------------------------------------------------------------------------- +
 # Develop Word Relationships ----
 # + ------------------------------------------------------------------------- +
@@ -225,7 +229,7 @@ ComWalk <- walktrap.community(Bigram_Rel)
 
 
 # open png file
-png(paste0('studies/daily-devo/',TmStmp, '_06_','BigramNetworks.png'),
+png(paste0(DailyDevo, '/',TmStmp, '_06_','BigramNetworks.png'),
     width = 2906, height = 2581)
 
 # run the plot into png stream
@@ -324,4 +328,85 @@ top_terms %>%
   scale_y_reordered() +
   ggtitle(paste('Topic Model (k = 3, n = 5)\nChapters:', ttlCh[1], ttlCh[2], ttlCh[3]))
 
-ggsave(paste0('studies/daily-devo/',TmStmp, '_07_','TopicModels', '.png'))
+ggsave(paste0(DailyDevo, '/',TmStmp, '_07_','TopicModels', '.png'))
+
+# + ------------------------------------------------------------------------- +
+# Make Daily Devo md file ----
+# + ------------------------------------------------------------------------- +
+library(rvest)
+
+utmost       <- read_html('https://utmost.org/classic/today/')
+utmost_title <- utmost %>% html_elements('.entry-title') %>% html_text(trim = TRUE)
+utmost_keyvs <- utmost %>% html_elements('#key-verse-box') %>% html_text(trim = TRUE)
+utmost_contt <- utmost %>% html_elements('.post-content') %>% html_text(trim = TRUE) %>% str_replace_all('\n', '')
+utmost_wisdm <- utmost %>% html_elements('.wisdom-content') %>% html_text(trim = TRUE)#%>% str_replace_all('\n', '')
+
+fileConn <- file(paste0(DailyDevo, '/', TmStmp, '.md'))
+writeLines(
+  str_wrap(
+    c( 
+      # header
+      paste("# Daily Devotion"),
+      paste("* Time Stamp: ", Sys.time()),
+      cat('\n'), paste('\n'),
+      
+      # utmost
+      paste('##', utmost_title),
+      paste('*', utmost_keyvs),
+      cat('\n'), paste('\n'),
+      utmost_contt,
+      cat('\n'), paste('\n'),
+      paste('## Daily Wisdom'),
+      utmost_wisdm,
+      
+      # scripture
+      cat('\n'), paste('\n'),
+      paste('##', OldT_Books, OldT_Chapters[1]),
+      unlist(split(Comb_Subset$Text, Comb_Subset$BkCh)[1]),
+      cat('\n'), paste('\n'),
+      paste('##', OldT_Books, OldT_Chapters[2]),
+      unlist(split(Comb_Subset$Text, Comb_Subset$BkCh)[2]),
+      cat('\n'), paste('\n'),
+      paste('##', NewT_Books, NewT_Chapters[1]),
+      unlist(split(Comb_Subset$Text, Comb_Subset$BkCh)[3]),
+      cat('\n'), paste('\n'),
+      
+      # charts
+      paste('## Scripture Stats'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_00_','ScriptureStats.png', ')')),
+      cat('\n'), paste('\n'),
+      paste('## TF-IDF Cut Off'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_01_','tfidf_cutoff.png', ')')),
+      cat('\n'), paste('\n'),
+      paste('## Top TF-IDF'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_02_','tfidf_top', slicemx, 'pct.png', ')')),
+      cat('\n'), paste('\n'),
+      paste('## Sentiment'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_03_','Sentiment_', SentmtType, '.png', ')')),
+      cat('\n'), paste('\n'),
+      paste('## Bigram Counts'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_04_','bigram_counts', '.png', ')')),
+      cat('\n'), paste('\n'),
+      paste('## Top Bigram TF-IDF'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_05_','bigram_tfidf_top', BigrmPct, 'pct.png', ')')),
+      cat('\n'), paste('\n'),
+      paste('## Bigram Networks'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_06_','BigramNetworks.png', ')')),
+      cat('\n'), paste('\n'),
+      paste('## LDA Topic Model'),
+      cat('\n'), paste('\n'),
+      paste(paste0('![]', '(', TmStmp, '_07_','TopicModels', '.png', ')'))
+    ), 
+    width = 80
+  ),
+  fileConn
+)
+close(fileConn)
+#file.show(paste0(DailyDevo, '/', TmStmp, '.md'))
