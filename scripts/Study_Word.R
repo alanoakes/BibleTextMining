@@ -1,5 +1,5 @@
 # + ------------------------------------------------------------------- +
-# Word To Study ----
+# Word Input ----
 # + ------------------------------------------------------------------- +
 WordConcept <- "forgive"
 
@@ -14,6 +14,7 @@ library(ggplot2)
 library(tidytext)
 library(forcats)
 library(DT)
+library(plotly)
 data("stop_words")
 
 # + ------------------------------------------------------------------- +
@@ -21,22 +22,8 @@ data("stop_words")
 # + ------------------------------------------------------------------- +
 setwd('C:/Users/oakespar/Documents/2021-BibleStudies')
 Scrip       <- read_csv('data/ScriptureStrongsKjv.csv', col_names = TRUE)
-Scrip1      <- read_csv('data/ScriptureKjv.csv', col_names = TRUE)
 Concordance <- read_csv('data/Concordance.csv', col_names = TRUE)
 BibleOrder  <- read_csv('data/BibleBkOrder.csv', col_names = TRUE)
-
-# + ------------------------------------------------------------------- +
-# Build Concordance ----
-# Re: for stop word list & area of study
-# + ------------------------------------------------------------------- +
-#names(Concordance) <- c('Strongs', 'Lgg', 'X', 'Word', 'Pos_Long', 'Pos_Abbv', 'Transliteration', 'Meaning')
-#Conc_StpWrd <- Concordance[,c(1,5,6)]
-
-# Determine Your Area of Study
-StrongsArray       <- Concordance %>% filter(grepl(paste0(WordConcept, "*"), Meaning)) %>% select(Strongs) %>% pull(Strongs)
-StrongsArray       <- str_c(StrongsArray, collapse = "|")
-SubScrip           <- Scrip %>% filter(grepl(StrongsArray, Text))
-
 
 # + ------------------------------------------------------------------- +
 # Build Lexicon Table ----
@@ -47,7 +34,17 @@ Concordance %>%
   datatable(class = 'cell-border stripe', rownames = FALSE)
 
 # + ------------------------------------------------------------------- +
-# Tokenize Words ----
+# Subset Bible By Strongs ----
+# + ------------------------------------------------------------------- +
+#names(Concordance) <- c('Strongs', 'Lgg', 'X', 'Word', 'Pos_Long', 'Pos_Abbv', 'Transliteration', 'Meaning')
+#Conc_StpWrd <- Concordance[,c(1,5,6)]
+StrongsArray       <- Concordance %>% filter(grepl(paste0(WordConcept, "*"), Meaning)) %>% select(Strongs) %>% pull(Strongs)
+StrongsArray       <- str_c(StrongsArray, collapse = "|")
+SubScrip           <- Scrip %>% filter(grepl(StrongsArray, Text))
+SubScrip           <- SubScrip %>% filter(grepl(paste0(WordConcept, "*"), Text))
+
+# + ------------------------------------------------------------------- +
+# Unnest Scriptures By Strongs Numbers ----
 # + ------------------------------------------------------------------- +
 TknsUnst <- SubScrip %>%
   separate_rows(Text, sep = "\\^\\s?") %>%
@@ -62,24 +59,130 @@ TknsUnst      <- left_join(TknsUnst, BibleOrder)
 TknsUnst$Id   <- with( TknsUnst, paste(Book, Chapter, Verse))
 TknsUnst$Id_s <- with( TknsUnst, paste(Book, Chapter, Verse, Strongs))
 
+# + ------------------------------------------------------------------- +
+# Strongs Inflection Count ----
+# + ------------------------------------------------------------------- +
+# Clean the inflections uses
+ClnInflection <- TknsUnst %>%
+  filter(grepl(StrongsArray, Strongs)) %>%
+  distinct(Strongs, Text) %>%
+  mutate(StrIncr = paste0(Strongs, '-', row_number())) %>%
+  select(StrIncr, Text) %>%
+  group_by(StrIncr) %>%
+  unnest_tokens(word, Text) %>%
+  filter(grepl(paste0(WordConcept, "*"), word)) %>%
+  mutate(Strongs = str_remove_all(StrIncr, '-\\d+')) %>%
+  ungroup() %>% group_by(Strongs) %>%
+  count(Strongs, word, sort = TRUE)
+
+# make a list of my stop words
+#split(ClnInflection_1$word, ClnInflection_1$Strongs)
+#mystopwords <- tibble(
+#  word = c('hast' ,'hath', 'thou', 'thee', 'ye', 'maketh', 'peradventure', 'shalt', 
+#           'thereof', 'art', 'mayest', 'wherewith')
+#) 
+
+# make a misc word category per strongs word
+#ClnInflSum <- ClnInflection %>%
+#  group_by(Strongs) %>%
+#  summarize(TotalN = sum(n))
+#
+#ClnInflection <- left_join(ClnInflection, ClnInflSum) %>%
+#  mutate(PrctN = n / TotalN) %>%
+#  mutate(WordN = ifelse(PrctN > quantile(PrctN, 0.50), Word, 'MISC')) %>%
+#  ungroup()
 
 # + ------------------------------------------------------------------- +
-# Count Scripture Locations ----
+# Strongs Inflection Sankey ----
 # + ------------------------------------------------------------------- +
-StrongsCnt_Global <- TknsUnst %>%
-  filter(grepl(StrongsArray, Strongs)) %>%
-  count(Strongs, Book)
+links <- ClnInflection
+  #select(Strongs, WordN) %>%
+  #group_by(Strongs) %>%
+  #count(Strongs, WordN)
+
+colnames(links) <- c('source', 'target', 'value')
+
+# From these flows we need to create a node data frame: it lists every 
+# entities involved in the flow
+nodes <- data.frame(
+  name = c(as.character(links$source), as.character(links$target)) %>%
+    unique()
+)
+# With networkD3, connection must be provided using id, not using real name 
+# like in the links dataframe.. So we need to reformat it.
+links$IDsource <- match(links$source, nodes$name)-1 
+links$IDtarget <- match(links$target, nodes$name)-1
+
+# Make the Network. I call my colour scale with the colourScale argument
+fig <- plot_ly(
+  type = 'sankey',
+  orientation = 'h',
+  node = list(
+    label = nodes$name,
+    pad = 15,
+    thickness = 10
+  ),
+  link = list(
+    source = links$IDsource,
+    target = links$IDtarget,
+    value = links$value
+  )
+)
+fig %>% layout(title = 'Inflection Uses Per Strongs Number')
 
 # + ------------------------------------------------------------------- +
 # View Scripture Locations ----
 # + ------------------------------------------------------------------- +
-StrongsCnt_Global %>%
-  left_join(BibleOrder) %>%
+TknsUnst %>%
+  filter(grepl(StrongsArray, Strongs)) %>%
+  group_by(Strongs) %>%
+  count(Strongs, Text, sort = TRUE) %>%
+  ungroup() %>%
+  left_join(TknsUnst) %>%
   ggplot(aes(fill=Strongs, y=n, x=reorder(Book, -OrderBk))) +
     geom_bar(position="stack", stat="identity") +
   facet_grid(rows = vars(reorder(Section, Section_Ord)), scales = 'free') +
   coord_flip() +
   xlab('Books By Section') + ylab('Strongs Counts')
+
+# + ------------------------------------------------------------------- +
+# Find POS: Nouns ----
+# + ------------------------------------------------------------------- +
+data.frame(sort(table(Concordance$Pos_Long)))
+#lapply(split(Concordance$Text, Concordance$Pos_Long), function(x) head(x))
+
+Concordance$Pos_Long <- str_replace(Concordance$Pos_Long, 'name/g.', 'name group')
+Concordance$Pos_Long <- str_replace(Concordance$Pos_Long, 'name/l.', 'name location')
+Concordance$Pos_Long <- str_replace(Concordance$Pos_Long, 'noun fem', 'name feminine')
+Concordance$Pos_Long <- str_replace(Concordance$Pos_Long, 'noun masc', 'name masculine')
+Concordance$Pos_Long <- tolower(Concordance$Pos_Long)
+
+# View Total pos across bible
+TknsUnst %>%
+  left_join(Concordance[,c(1,5,6)]) %>%
+  filter(grepl('name*|noun*', Pos_Long)) %>%
+  group_by(Book) %>%
+  count(Pos_Long, Text, sort = TRUE) %>%
+  left_join(BibleOrder[,c(5,6)]) %>%
+  drop_na() %>%
+  group_by(Pos_Long) %>%
+  slice_max(Text, n = 5) %>%
+  ungroup() %>%
+  arrange(desc(n)) %>%
+  ggplot(aes(n, Text, fill = Pos_Long)) +
+    geom_col(show.legend = FALSE) +
+    facet_wrap(~Pos_Long, ncol = 2, scales = 'free')
+
+# view pos counts by book
+TknsUnst %>%
+  left_join(Concordance[,c(1,5,6)]) %>%
+  filter(grepl('name*|noun*', Pos_Long)) %>%
+  count(Book, Pos_Long, Text, sort = TRUE) %>%
+  left_join(BibleOrder[,c(5,6)]) %>%
+  drop_na() %>%
+  ggplot() +
+    geom_bar(mapping = aes(x = fct_reorder(Book, OrderBk, .desc = TRUE), fill = Pos_Long)) +
+    coord_flip()
 
 # + ------------------------------------------------------------------- +
 # Calc Bigram Strongs ----
