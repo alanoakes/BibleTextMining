@@ -29,23 +29,15 @@ BibleOrder  <- read_csv('data/BibleBkOrder.csv', col_names = TRUE)
 # + ------------------------------------------------------------------------- +
 # List Book Names ----
 # + ------------------------------------------------------------------------- +
-split(
-  data.frame(
-    Bk = BibleOrder$Book, 
-    Ch = BibleOrder$Chapters, 
-    Section = BibleOrder$Section
-    ), 
-  f = BibleOrder$Section_Ord,
-  )
+data.frame(bk = BibleOrder$BookName, bks = BibleOrder$Book)
 
 # + ------------------------------------------------------------------------- +
 # Set Study Area ----
 # + ------------------------------------------------------------------------- +
-OldT_Books    <- c("1Ch")
-OldT_Chapters <- c(28, 29)
+OldT_Books    <- c("2Ch")
+OldT_Chapters <- 1:3
 NewT_Books    <- c("Jhn")
-NewT_Chapters <- c(9)
-
+NewT_Chapters <- c(10)
 # + ------------------------------------------------------------------------- +
 # Subset Scripture ----
 # + ------------------------------------------------------------------------- +
@@ -258,37 +250,6 @@ title(main = 'Word Relationships with Highest TF-IDF', cex.main = 6, col = '#2e3
 dev.off()
 
 # + ------------------------------------------------------------------------- +
-# View Word Relats Sankey ----
-# + ------------------------------------------------------------------------- +
-#library(networkD3)
-#library(dplyr)
-#
-## Make a connection data frame
-#links <- data.frame(
-#  source = Bigram_Data$word1,
-#  target = Bigram_Data$word2,
-#  value = Bigram_Data$n
-#)
-#
-## From these flows we need to create a node data frame: 
-## it lists every entities involved in the flow
-#nodes <- data.frame(
-#  name = c(as.character(Bigram_Data$word1), as.character(Bigram_Data$word2)) %>%
-#    unique()
-#)
-#
-## With networkD3, connection must be provided using id, 
-## not using real name like in the links dataframe
-#links$IDsource <- match(links$source, nodes$name)-1 
-#links$IDtarget <- match(links$target, nodes$name)-1
-#
-#sankeyNetwork(
-#  Links = links, Nodes = nodes, 
-#  Source = "IDsource", Target = "IDtarget", 
-#  Value = "value", NodeID = "name"
-#)
-
-# + ------------------------------------------------------------------------- +
 # Calculate Topic Models ----
 # + ------------------------------------------------------------------------- +
 library(topicmodels)
@@ -341,16 +302,24 @@ utmost_keyvs <- utmost %>% html_elements('#key-verse-box') %>% html_text(trim = 
 utmost_contt <- utmost %>% html_elements('.post-content') %>% html_text(trim = TRUE) %>% str_replace_all('\n', '')
 utmost_wisdm <- utmost %>% html_elements('.wisdom-content') %>% html_text(trim = TRUE)#%>% str_replace_all('\n', '')
 
+utmost_dlybd <- utmost %>% html_elements('#bible-in-a-year-box') %>% html_text(trim = TRUE) %>% 
+  str_replace_all('Bible in a Year\\: ', '')
+#  str_split_fixed('; ', n = 2) %>%
+#  as.data.frame()
+# OldT <- utmost_dlybd$V1 %>% str_split_fixed('-', n = 2) %>% as.data.frame()
+# OldT_Book     <- OldT$V1 %>% str_sub(1, str_length(OldT$V1) - str_length(str_extract(OldT$V1, '\\s\\d+')))
+# OldT_Ch1      <- OldT$V1 %>% str_extract_all('\\s\\d+') %>% str_trim() %>% as.numeric()
+# OldT_Ch2      <- OldT$V2 %>% as.numeric()
+# OldT_Chapters <- OldT_Ch1:OldT_Ch2
+# NewT <- utmost_dlybd$V2
+
 fileConn <- file(paste0(DailyDevo, '/', TmStmp, '.md'))
 writeLines(
   str_wrap(
     c( 
-      # header
       paste("# Daily Devotion"),
       paste("* Time Stamp: ", Sys.time()),
       cat('\n'), paste('\n'),
-      
-      # utmost
       paste('##', utmost_title),
       paste('*', utmost_keyvs),
       cat('\n'), paste('\n'),
@@ -358,20 +327,19 @@ writeLines(
       cat('\n'), paste('\n'),
       paste('## Daily Wisdom'),
       utmost_wisdm,
-      
-      # scripture
       cat('\n'), paste('\n'),
-      paste('##', OldT_Books, OldT_Chapters[1]),
+      paste('## Scripture Reading'),
+      paste('*', utmost_dlybd),
+      cat('\n'), paste('\n'),
+      paste('###', OldT_Books, OldT_Chapters[1]),
       unlist(split(Comb_Subset$Text, Comb_Subset$BkCh)[1]),
       cat('\n'), paste('\n'),
-      paste('##', OldT_Books, OldT_Chapters[2]),
+      paste('###', OldT_Books, OldT_Chapters[2]),
       unlist(split(Comb_Subset$Text, Comb_Subset$BkCh)[2]),
       cat('\n'), paste('\n'),
-      paste('##', NewT_Books, NewT_Chapters[1]),
+      paste('###', NewT_Books, NewT_Chapters[1]),
       unlist(split(Comb_Subset$Text, Comb_Subset$BkCh)[3]),
       cat('\n'), paste('\n'),
-      
-      # charts
       paste('## Scripture Stats'),
       cat('\n'), paste('\n'),
       paste(paste0('![]', '(', TmStmp, '_00_','ScriptureStats.png', ')')),
@@ -409,4 +377,8 @@ writeLines(
   fileConn
 )
 close(fileConn)
-#file.show(paste0(DailyDevo, '/', TmStmp, '.md'))
+fileConnI <- file.info(paste0(DailyDevo, '/', TmStmp, '.md'), extra_cols = FALSE)
+row.names(fileConnI) <- 'File Info'
+colnames(fileConnI)  <- c('size', 'isdir', 'mode', 'file modification', 'last status change', 'last access time')
+fileConnI$`Local Memory Usage` <- paste(memory.size(), 'MB')
+t(fileConnI)
