@@ -38,6 +38,10 @@ OldT_Books    <- c("2Ch")
 OldT_Chapters <- 1:3
 NewT_Books    <- c("Jhn")
 NewT_Chapters <- c(10)
+
+# subtitle for charts
+ttlCh <- paste0(c(paste(OldT_Books, OldT_Chapters), paste(NewT_Books, NewT_Chapters)), collapse = ', ')
+
 # + ------------------------------------------------------------------------- +
 # Subset Scripture ----
 # + ------------------------------------------------------------------------- +
@@ -164,8 +168,7 @@ Bigram_tf_idf %>%
     geom_boxplot(fill = "slateblue", alpha = 0.2) + 
     xlab("Books") + ylab("Occurence Per Book") +
   ggtitle(paste('Bigram Counts Per Book\nRe:', 
-                OldT_Books,  OldT_Chapters[1], ',', OldT_Chapters[2], 
-                '&', NewT_Books, NewT_Chapters))
+                ttlCh))
 
 ggsave(paste0(DailyDevo, '/',TmStmp, '_04_','bigram_counts', '.png'))
 # + ------------------------------------------------------------------------- +
@@ -183,8 +186,7 @@ Bigram_tf_idf %>%
   facet_wrap(~Book, ncol = 2, scales = "free") +
   labs(x = "tf-idf", y = NULL) +
   ggtitle(paste('Top', BigrmPct, '% of Top TF-IDF Per Book\nRe:',
-                OldT_Books,  OldT_Chapters[1], ',', OldT_Chapters[2], 
-                '&', NewT_Books, NewT_Chapters))
+                ttlCh))
 
 ggsave(paste0(DailyDevo, '/',TmStmp, '_05_','bigram_tfidf_top', BigrmPct, 'pct.png'))
 # + ------------------------------------------------------------------------- +
@@ -279,7 +281,6 @@ top_terms <- chapter_topics %>%
 # + ------------------------------------------------------------------------- +
 # View Topic Models ----
 # + ------------------------------------------------------------------------- +
-ttlCh <- sort(unique(Words_Chapter$BkCh))
 
 top_terms %>%
   mutate(term = reorder_within(term, beta, topic)) %>%
@@ -287,7 +288,7 @@ top_terms %>%
   geom_col(show.legend = FALSE) +
   facet_wrap(~ topic, scales = "free") +
   scale_y_reordered() +
-  ggtitle(paste('Topic Model (k = 3, n = 5)\nChapters:', ttlCh[1], ttlCh[2], ttlCh[3]))
+  ggtitle(paste('Topic Model (k = 3, n = 5)\nChapters:', ttlCh))
 
 ggsave(paste0(DailyDevo, '/',TmStmp, '_07_','TopicModels', '.png'))
 
@@ -377,8 +378,15 @@ writeLines(
   fileConn
 )
 close(fileConn)
+
+# + ------------------------------------------------------------------------- +
+# Review and Clean Environment ----
+# + ------------------------------------------------------------------------- +
 fileConnI <- file.info(paste0(DailyDevo, '/', TmStmp, '.md'), extra_cols = FALSE)
 row.names(fileConnI) <- 'File Info'
 colnames(fileConnI)  <- c('size', 'isdir', 'mode', 'file modification', 'last status change', 'last access time')
 fileConnI$`Local Memory Usage` <- paste(memory.size(), 'MB')
 t(fileConnI)
+
+rm(list = ls()) # remove all environment objects
+ls()
