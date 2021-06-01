@@ -35,9 +35,9 @@ data.frame(bk = BibleOrder$BookName, bks = BibleOrder$Book)
 # Set Study Area ----
 # + ------------------------------------------------------------------------- +
 OldT_Books    <- c("2Ch")
-OldT_Chapters <- 1:3
+OldT_Chapters <- 15:16
 NewT_Books    <- c("Jhn")
-NewT_Chapters <- c(10)
+NewT_Chapters <- c(12)
 
 # subtitle for charts
 ttlCh <- paste0(c(paste(OldT_Books, OldT_Chapters), paste(NewT_Books, NewT_Chapters)), collapse = ', ')
